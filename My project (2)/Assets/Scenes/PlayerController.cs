@@ -1,60 +1,96 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+
 public class PlayerController : MonoBehaviour
 {
     public string playerName = "Player";
     public int hp = 100;
-    //적용가능한 수치를 정의 하는 
-    //체력 변수이름:hp 담는 값: 100
+    public int lives = 3;
     public float moveSpeed = 5f;
-    //캐릭터 움직임에 대한 이동속도 값
     public float jumpPower = 8f;
-    //점프를 하겠다는 것을 공개? (유니티 인스펙터(Inspector)창에 노출되며 다른 스크립트에서 전급가능한)
+    public float fallLimit = -10f;
     public Vector3 startPosition;
     public Transform visual;
+    public Vector2 airScale = new Vector2(0.8f, 1.2f);
+
     private Vector2 moveInput;
     private Rigidbody2D rb;
+    private bool isGrounded = false;
+    private bool isGameOver = false;
+    private float facing = 1f;
+
     void Start()
-        //Start() 스크립트 인스턴스가 생성될 때 가장 먼저 딱 한 번 호출 되는 명령어 다른 오브젝트의 참조를 준비할때 사용
-        //게임이 시작될 때 최초 1회 실행되는 (초기화 값/게임 초기세팅 값?)
-        //이벤트 함수
     {
         rb = GetComponent<Rigidbody2D>();
         transform.position = startPosition;
-        Debug.Log(playerName + " 시작. 체력 " + hp);
+        Debug.Log(playerName + " 시작. 목숨 " + lives);
     }
+
     void OnMove(InputValue value)
     {
         moveInput = value.Get<Vector2>();
-        //if는 조건문 (조건이 맞을 때만 중괄호 안을 실행?
-        //moveInput 선언
-        if (moveInput.x > 0) 
-        //조건
-        { visual.localScale = new Vector3(1, 1, 1); }
-            //조건이 맞을 떄 실행 되는 코드
-        else if (moveInput.x < 0)
-        //다른조건
-        { visual.localScale = new Vector3(-1, 1, 1); }
+        if (moveInput.x > 0) { facing = 1f; }
+        else if (moveInput.x < 0) { facing = -1f; }
     }
-          //앞 조건은 틀리고 이 조건이 맞을 때 실행되는 코드
-          //해당 코드를 활용하여 키의 입력에 따른 좌우반전 효과적용
+
     void OnJump(InputValue value)
     {
-        if (value.isPressed)
+        if (value.isPressed && isGrounded && !isGameOver)
         {
             Debug.Log("점프!");
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpPower);
+            isGrounded = false; // 점프 직후 바닥에서 떨어졌음을 명시
         }
     }
-    //점프로그 
-    void Update()
-        //Update() 매 프레임마다 반복해서 호출하는/키보드/마우스 입력 감지 실시간 이동처리
-        //실시간 처리를 위한 함수
-        //이벤트 함수
 
+    void FixedUpdate()
     {
-        transform.Translate(Vector3.right * moveInput.x
-        * moveSpeed * Time.deltaTime);
+        // 물리 기반 좌우 이동 (Transform.Translate 대신 Rigidbody velocity 사용)
+        if (!isGameOver)
+        {
+            rb.linearVelocity = new Vector2(moveInput.x * moveSpeed, rb.linearVelocity.y);
+        }
+    }
+
+    void Update()
+    {
+        if (transform.position.y < fallLimit)
+        {
+            lives -= 1;
+            transform.position = startPosition;
+            rb.linearVelocity = Vector2.zero;
+            Debug.Log("낙사. 남은 목숨 " + lives);
+            if (lives <= 0)
+            {
+                isGameOver = true;
+                Debug.Log("게임 오버");
+            }
+        }
+
+        // 비주얼 크기 조절
+        if (isGrounded)
+        {
+            visual.localScale = new Vector3(facing, 1f, 1f);
+        }
+        else
+        {
+            visual.localScale = new Vector3(facing * airScale.x, airScale.y, 1f);
+        }
+    }
+
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (collision.gameObject.CompareTag("Ground"))
+        {
+            isGrounded = true;
+        }
+    }
+
+    void OnCollisionExit2D(Collision2D collision)
+    {
+        if (collision.gameObject.CompareTag("Ground"))
+        {
+            isGrounded = false;
+        }
     }
 }
-
